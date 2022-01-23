@@ -1,0 +1,35 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'helm-pod'
+      containerTemplate {
+        name 'helm'
+        image 'wardviaene/helm-s3'
+        ttyEnabled true
+        command 'cat'
+      }
+    }
+  }
+  stages {
+    stage('Run helm') {
+      steps {
+        container('helm') {
+          sh '''
+          HELM_BUCKET=chartrepo-7012
+          PACKAGE=weatherchart
+          export AWS_REGION=us-east-2
+         
+          cp -r /home/helm/.helm ~
+          helm repo add my-charts s3://${HELM_BUCKET}/charts
+          helm repo add stable https://kubernetes-charts.storage.googleapis.com
+          helm repo list
+          cd helm/${PACKAGE}
+          helm dependency update
+          helm package .
+          helm s3 push --force ${PACKAGE}-*.tgz my-charts
+          '''
+        }
+      }
+    }
+  }
+}
